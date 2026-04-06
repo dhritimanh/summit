@@ -446,7 +446,22 @@ The full design. Catalysts corrupt information. Dominoes make fixes costly. Comp
 
 ---
 
+### Phase 7: Interstellar — The Rope Team (Tasks 50–55)
 
+**Goal:** Does managing a team of 3–5 climbers feel like a different game?
+
+Now that the environmental simulation, UI, and sound are perfected for one person, we add the final layer: Team Complexity.
+
+| # | Task | What to build |
+|---|------|---------------|
+| 50 | Multi-Climber Array | Change `Sim.Zara` to `Sim.Team []Climber`. Update all loops to iterate per member. |
+| 51 | Support Logic | Being in the same camp as a teammate provides a +2 Fitness recovery bonus per turn. |
+| 52 | Interdynamics | New "Shared Warning" logic: if one climber is in Crisis, a teammate at the same location can use their action to help, improving the first climber's options. |
+| 53 | Personality Traits | Each climber archetype has a "Psychology" stat that affects how they react to others' failures. |
+| 54 | Team UI | Status summary line for all team members at the top of every screen. |
+| 55 | Stress Escalation | If more than 2 climbers are in warning state, AMS growth for everyone else is increased by 1.2x. |
+
+**Pass condition:** Play with 3 climbers. When two are in trouble simultaneously and you can only act on one this turn, does it create the intended "Sophie's Choice" dread?
 
 ---
 
@@ -556,61 +571,4 @@ summit/
 
 ---
 
-## What done looks like at each stage
 
-**Skateboard:** Terminal prints a status block each turn. AMS climbing creates visible dread. Crisis panel appears with degraded options if warning was ignored. Summit and death both feel distinct.
-
-**Bicycle:** Three climbers shown simultaneously. Being unable to act on all three this turn feels like a real sacrifice. Warning timers create urgency without pausing the game.
-
-**Scooter:** Different seed = meaningfully different run. Oxygen running out mid-route feels like a genuine crisis not a scripted event. Player wants to immediately retry after losing.
-
-**Car:** Dots communicate danger without text. Mountain feels like a place. Game can be watched at 4x speed and the dots tell the story.
-
-**Plane:** Stat changes feel weighty. Sound tells you how dangerous things are before you read numbers. Prevention feels rewarding because the game confirms it.
-
-**Rocket:** Every system affects every other system. A comms blackout during a frostbite warning during an oxygen shortage feels like a specific kind of hell that the player created through their own decisions. The seed at the end makes you want to share the run.
-
-## Verification Plan
-
-### Each Phase — Play Test
-The design doc defines explicit pass conditions per phase:
-
-| Phase | Pass Condition |
-|---|---|
-| Skateboard | AMS hitting 80 feels bad. Reaching summit feels good. |
-| Bicycle | Choosing between two climbers in trouble feels genuinely bad. |
-| Scooter | Different seed = meaningfully different run. Immediate retry desire after losing. |
-| Car | Can tell which climber is in trouble from dot behavior alone (60s, no numbers). |
-| Plane | Can tell crisis vs calm from sound alone (30s, monitor off). |
-| Rocket | Comms blackout + frostbite warning + oxygen shortage = specific kind of hell built by player decisions. |
-
-### Automated Tests
-- `go build ./...` compiles cleanly at every phase
-- `go vet ./...` passes at every phase
-- Unit tests for core mechanics: `AdvanceTime()`, `CheckThreats()`, `ApplyChoice()`, seed determinism (same seed → same run)
-
-#### [MODIFY] Various UI files
-- Sequential stat reveals: values tick toward target at ~5 units/frame, never jump
-
----
-
-### Phase 7: Interstellar — The Rope Team (Tasks 50–55)
-
-**Goal:** Does managing a team of 3–5 climbers feel like a different game?
-
-Now that the environmental simulation, UI, and sound are perfected for one person, we add the final layer: Team Complexity.
-
-| # | Task | What to build |
-|---|------|---------------|
-| 50 | Multi-Climber Array | Change `Sim.Zara` to `Sim.Team []Climber`. Update all loops to iterate per member. |
-| 51 | Support Logic | Being in the same camp as a teammate provides a +2 Fitness recovery bonus per turn. |
-| 52 | Interdynamics | New "Shared Warning" logic: if one climber is in Crisis, a teammate at the same location can use their action to help, improving the first climber's options. |
-| 53 | Personality Traits | Each climber archetype has a "Psychology" stat that affects how they react to others' failures. |
-| 54 | Team UI | Status summary line for all team members at the top of every screen. |
-| 55 | Stress Escalation | If more than 2 climbers are in warning state, AMS growth for everyone else is increased by 1.2x. |
-
-**Pass condition:** Play with 3 climbers. When two are in trouble simultaneously and you can only act on one this turn, does it create the intended "Sophie's Choice" dread?
-
----
-
-## Complete file structure at interstellar stage
