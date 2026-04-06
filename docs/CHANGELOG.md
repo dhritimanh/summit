@@ -7,17 +7,17 @@
 **Status:** Build passes. Ready for playtesting.
 
 ### What was built
-- `Climber` struct: `Name`, `Fitness` (0–100), `AMS` (0–100), `Loc` (0=Base → 4=Summit)
-- `advanceTime()`: At altitude → fitness -6 to -10/turn, AMS scales by altitude (Camp1: +1–4, Camp2: +2–6, High Camp: +4–9, Summit: +6–12). At base → fitness +12, AMS -15
-- `checkThreats()`: Three-level threat system
-  - **Whisper** (AMS ≥ 30, 50% chance): Subtle radio log blip only. No pause, no panel
-  - **Warning** (AMS ≥ 55): Log line + 3 choices, 2-turn countdown timer starts
-  - **Crisis** (AMS ≥ 80, or timer hits 0): Full panel. Options gated — if warning was ignored, only 2 bad options available
-- `applyChoice()`: Applies fitness/AMS/location deltas
-- Warning timer: 2 turns to act. If ignored, crisis fires with degraded options
-- Radio log: last 12 lines, timestamped, displayed above each prompt
-- Win: summit reached + returned to base alive = success
-- Lose: fitness ≤ 0 = death. AMS = 100 = HACE death
+- `Climber` struct: `Name`, `Fitness` (0–100), `AMS` (0–100), `Loc` (Base to Summit), `Altitude` (meters)
+- **Altitude System**: Everest-scale heights (Base: 5364m, Summit: 8848m)
+  - `Advance` now gains ~400–600m per turn. 
+  - Reaching a camp takes multiple turns of climbing (e.g., C2 to C4 is 1500m / 3–4 turns).
+  - **DEATH ZONE**: Visual marker at 8000m+ where recovery is minimal.
+- **Turn Granularity**: 1 turn = 3 hours (8 turns/day).
+- `advanceTime()`: Fitness decay and AMS gain scale by both Turn Duration and Altitude.
+- `checkThreats()`: Three-level threat system (Whisper / Warning / Crisis) with timed responses.
+- `applyChoice()`: Processes climbing/descent/rest logic.
+- Radio log: Shared channel with timestamped check-ins.
+- Win/Loss: Summit success must return to Base alive. Fitness 0 = death.
 
 ### What is NOT in this phase (by design)
 - No graphics
