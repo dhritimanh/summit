@@ -1,4 +1,4 @@
-package main
+package data
 
 type ClimberArchetype struct {
 	NamePool      []string
@@ -22,9 +22,4 @@ var ArchetypePool = []ClimberArchetype{
 		BaseFitness:   95,
 		AMSSusPercent: 1.5,
 	},
-}
-
-func GetRandomArchetype(session *WorldState) ClimberArchetype {
-	idx := session.Rng.Intn(len(ArchetypePool))
-	return ArchetypePool[idx]
 }

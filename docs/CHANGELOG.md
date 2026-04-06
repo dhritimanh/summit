@@ -19,14 +19,6 @@
 - Radio log: Shared channel with timestamped check-ins.
 - Win/Loss: Summit success must return to Base alive. Fitness 0 = death.
 
-### What is NOT in this phase (by design)
-- No graphics
-- No multiple climbers
-- No resources (O2, food, fuel)
-- No seed system
-- No weather
-- Stats shown explicitly (fitness delta on every choice) — intentional for mechanical verification
-
 ---
 
 ## Phase 2 — Bicycle ✅
@@ -43,18 +35,28 @@
 
 ---
 
-## Phase 3 — Scooter (Complete)
+## Phase 3 — Scooter ✅
 **Built:** Deterministic Seed-based RNG, Oxygen "Charges" system, Auto-reloading resources, Climber Archetypes, and a 4-day Weather Forecast engine.
 **Status:** 100% Complete. Modular structure improved for Phase 4 scaling. Verified by unit tests.
 
 ### What has been built
-- [x] **Deterministic Seed**: Centralized `WorldState` initialized via `NewWorldState(seed)`.
-- [x] **Oxygen Mechanics**: "Charges" system (3 per bottle) with auto-reload from camp supplies.
-- [x] **Archetypes**: `ClimberArchetype` system affecting base fitness and AMS susceptibility.
-- [x] **Weather Forecast UI**: 4-day interactive panel showing upcoming wind speeds and probability ranges.
-- [x] **O2 Crisis**: High-stakes crisis event when oxygen is depleted at altitude.
-- [x] **Intelligent Modularization**: Logical file grouping (`engine_`, `data_`, `entity_`) to support Phase 4 expansion.
-- [x] **Summit Window**: Automated meteorology scan for stable low-wind periods.
+- [x] **Deterministic Seed**: Centralized `WorldState` initialized via `NewWorldState(seed)`. Every run is repeatable.
+- [x] **Oxygen Mechanics**: "Charges" system (3 per bottle) with auto-reload from camp supplies. Mid-route depletion triggers a Crisis.
+- [x] **Archetypes**: `ClimberArchetype` system affecting base fitness and AMS susceptibility (e.g., Veteran vs Journalist).
+- [x] **Weather Forecast Engine**: 31-day atmospheric curve. 4-day forecast with confidence degradation.
+- [x] **Summit Window**: Automated meteorology scan detection.
+- [x] **Rocket Architecture**: Codebase refactored into modular packages (`sim`, `ui`, `world`, `rng`, `data`) to prevent circular dependencies and prepare for Ebitengine (Phase 4).
+
+---
+
+## Architecture Milestone: Rocket Alignment 🚀
+**Built:** Full package-level separation to support graphical UI integration.
+**Status:** Stable and verified.
+
+### Key Changes
+- **Cycle-Free Packages**: Resolved the `sim` <-> `ui` circular dependency by moving all interaction logic into `ui/ui.go`. 
+- **Orchestrator Pattern**: Introduced the `Sim` struct as the central authority for simulation physics, making the engine "Headless" and ready for GUI attach.
+- **Improved Data Safety**: Added safety checks for zero-value archetypes and internalized stat calculation on the climber level.
 
 ---
 
@@ -62,10 +64,7 @@
 
 | # | Phase | Note | Status |
 |---|---|---|---|
-| 1 | Skateboard | **BUG**: "Advance" at Summit wasted turns — loc clamped at 4, fitness drained, player died stuck at top | ✅ Fixed — Summit now shows Begin Descent / Rest / Hold only |
-| 2 | Skateboard | **BUG**: AMS gain was flat 2–8/turn regardless of altitude — threat system barely fired in a fast ascent | ✅ Fixed — AMS now scales by altitude, Summit is most punishing |
-| 3 | Skateboard | **BUG**: Whisper threshold (AMS≥35, 33% chance) too conservative — never appeared in playtest | ✅ Fixed — threshold lowered to AMS≥30, probability raised to 50% |
-| 4 | Skateboard | **BUG**: Resting at High Camp/Summit resulted in net fitness loss because environmental decay (6–10) exceeded rest bonus (+6/8) | ✅ Fixed — 'Rest' actions now halve environmental decay for that turn, and base bonus was buffed. |
-| 5 | Skateboard | **CRITICAL LOGIC BUG**: Environmental decay happened *before* player input. If fitness was low, player died "at the start of the turn" without a chance to Rest. | ✅ Fixed — Reordered loop: State Check -> Player Input -> Decay. Action results are processed *before* the environment takes its toll. |
-| 6 | Skateboard | **DEATH ZONE BUG**: Resting at the summit yielded a net positive fitness gain, allowing players to sleep infinitely at 8800m. | ✅ Fixed — Added Death Zone (8000m+) constraint to `sim.go` where resting recovery is neutralized and ambient pressure remains lethal. |
-| 7 | Skateboard | **LOGIC/REALISM BUG**: Climbing at night (or 24/7 uninterrupted) carried no penalty. | ✅ Fixed — Added Nighttime Penalty (18:00 to 06:00). Ambient decay increases by 2, and climbing costs -15 fitness instead of -10. |
+| 5 | Skateboard | **CRITICAL LOGIC BUG**: Environmental decay happened *before* player input. If fitness was low, player died "at the start of the turn" without a chance to Rest. | ✅ Fixed |
+| 6 | Skateboard | **DEATH ZONE BUG**: Resting at the summit yielded a net positive fitness gain. | ✅ Fixed |
+| 7 | Skateboard | **LOGIC/REALISM BUG**: Climbing at night carried no penalty. | ✅ Fixed |
+| 8 | Refactor | **PANIC**: index out of range [0] in PrintDebug. | ✅ Fixed (Archetype initialization safety) |

@@ -1,4 +1,4 @@
-package main
+package data
 
 // Loc constants for camp IDs
 const (
@@ -27,7 +27,7 @@ type Choice struct {
 }
 
 // Pre-defined mountains
-var everest = Mountain{
+var Everest = Mountain{
 	Name: "Everest",
 	CampNames: map[int]string{
 		LocBase:     "Base Camp",
@@ -45,5 +45,3 @@ var everest = Mountain{
 	},
 	DeathZone: 8000,
 }
-
-var currentMountain = everest // Global state for the active peak

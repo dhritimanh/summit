@@ -1,4 +1,6 @@
-package main
+package world
+
+import "summit/data"
 
 const (
 	FitnessMin = 0
@@ -20,10 +22,10 @@ type Modifier struct {
 	MaxFitPenalty int
 }
 
-
 // Climber represents a single rope team member
 type Climber struct {
 	Name          string
+	Archetype     data.ClimberArchetype
 	Fitness       int
 	AMS           int
 	Loc           int
@@ -37,7 +39,7 @@ type Climber struct {
 }
 
 // Utility for keeping stats in range
-func clamp(v, lo, hi int) int {
+func Clamp(v, lo, hi int) int {
 	if v < lo {
 		return lo
 	}
@@ -48,17 +50,16 @@ func clamp(v, lo, hi int) int {
 }
 
 // ApplyStatChange safely modifies stats, applying any active modifiers and caps.
-// source could be "Environment", "Choice", or "Item"
 func ApplyStatChange(c *Climber, stat string, delta int, source string) {
 	if stat == "Fitness" {
 		maxFit := FitnessMax
 		for _, m := range c.Modifiers {
 			maxFit -= m.MaxFitPenalty
 		}
-		maxFit = clamp(maxFit, FitnessMin, FitnessMax)
+		maxFit = Clamp(maxFit, FitnessMin, FitnessMax)
 
-		c.Fitness = clamp(c.Fitness+delta, FitnessMin, maxFit)
+		c.Fitness = Clamp(c.Fitness+delta, FitnessMin, maxFit)
 	} else if stat == "AMS" {
-		c.AMS = clamp(c.AMS+delta, AmsMin, AmsMax)
+		c.AMS = Clamp(c.AMS+delta, AmsMin, AmsMax)
 	}
 }

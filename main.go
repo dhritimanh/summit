@@ -3,6 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"summit/data"
+	"summit/rng"
+	"summit/sim"
+	"summit/ui"
+	"summit/world"
 )
 
 func main() {
@@ -15,57 +20,40 @@ func main() {
 	fmt.Println("  Enter 1–4 to choose. 'q' to quit.")
 	fmt.Println()
 
-	// Initialize global session
-	session = NewWorldState(0)
-	
-	// Select Archetype and Name
-	session.Archetype = GetRandomArchetype(session)
-	name := session.Archetype.NamePool[session.Rng.Intn(len(session.Archetype.NamePool))]
+	// Initialize Sim with new WorldState and default Mountain
+	w := world.NewWorldState(0)
+	s := sim.NewSim(w, data.Everest)
 
-	// Climber state
-	c := &Climber{
-		Name:          name,
-		Fitness:       session.Archetype.BaseFitness,
-		AMS:           0,
-		Loc:           LocBase,
-		Altitude:      currentMountain.CampAltitudes[LocBase],
-		ActiveThreats: make(map[ThreatType]*ActiveThreat),
-		O2Charges:     3, // Standard start
-	}
+	// Climber generation via RNG package
+	c := rng.GenerateClimber(w)
+	c.Altitude = s.Mountain.CampAltitudes[data.LocBase]
+	s.Team = append(s.Team, c)
 
-
-	fmt.Printf(" [ SESSION SEED: %d ]\n", session.Seed)
-	logLine(fmt.Sprintf("%s — %s. Ready to move. Clear skies.", c.Name, currentMountain.Name))
-
+	fmt.Printf(" [ SESSION SEED: %d ]\n", w.Seed)
+	s.LogLine(fmt.Sprintf("%s — %s. Ready to move. Clear skies.", c.Name, s.Mountain.Name))
 
 	for {
 		// 1. CHECK TERMINAL (Win/Loss)
-		// We check this at the START of the loop so the player sees the 
-		// final state before the game ends.
-		done, outcome := checkTerminal(c)
+		done, outcome := s.CheckTerminal(c)
 
 		switch outcome {
 		case "summit":
-			fmt.Println()
-			fmt.Println("  ★  SUMMIT REACHED — now get her home alive.")
-			logLine("Zara — Summit. We made it. Descending now.")
+			fmt.Println("\n  ★  SUMMIT REACHED — now get her home alive.")
+			s.LogLine(fmt.Sprintf("%s — Summit. We made it. Descending now.", c.Name))
 		case "death":
-			fmt.Println()
-			fmt.Println("████████████████████████████████████████")
-			fmt.Println("  ZARA IS DEAD")
+			fmt.Println("\n████████████████████████████████████████")
+			fmt.Printf("  %s IS DEAD\n", c.Name)
 			fmt.Println("  Fitness collapsed. She didn't make it down.")
 			fmt.Println("████████████████████████████████████████")
 		case "ams_death":
-			fmt.Println()
-			fmt.Println("████████████████████████████████████████")
-			fmt.Println("  ZARA IS DEAD")
+			fmt.Println("\n██████████████████════██████████████████")
+			fmt.Printf("  %s IS DEAD\n", c.Name)
 			fmt.Println("  Severe AMS. HACE. No recovery possible.")
 			fmt.Println("████████████████████████████████████████")
 		case "success":
-			fmt.Println()
-			fmt.Println("╔══════════════════════════════════════╗")
+			fmt.Println("\n╔══════════════════════════════════════╗")
 			fmt.Println("║  SUMMIT AND SAFE — all home alive.   ║")
-			fmt.Println("║  Zara made it. Well led.             ║")
+			fmt.Printf("║  %s made it. Well led.             ║\n", c.Name)
 			fmt.Println("╚══════════════════════════════════════╝")
 		}
 
@@ -74,23 +62,22 @@ func main() {
 			os.Exit(0)
 		}
 
-		// 2. CHECK THREATS (Environmental status)
-		// This happens before player input so they can respond to warnings.
-		threat := checkThreats(c)
+		// 2. CHECK THREATS
+		threat := s.CheckThreats(c)
 
-		// 3. PLAYER INPUT (Get choice and apply it)
+		// 3. PLAYER INPUT
 		var result string
-		if threat == nil || threat.Level == LevelNone {
-			result = normalTurn(c)
+		if threat == nil || threat.Level == world.LevelNone {
+			result = ui.PromptNormalTurn(s, c)
 		} else {
 			switch threat.Level {
-			case LevelWhisper:
-				whisperEvent(c, threat)
-				result = normalTurn(c)
-			case LevelWarning:
-				result = warningEvent(c, threat)
-			case LevelCrisis:
-				result = crisisEvent(c, threat)
+			case world.LevelWhisper:
+				ui.RenderWhisper(s, c, threat)
+				result = ui.PromptNormalTurn(s, c)
+			case world.LevelWarning:
+				result = ui.PromptWarning(s, c, threat)
+			case world.LevelCrisis:
+				result = ui.PromptCrisis(s, c, threat)
 			}
 		}
 
@@ -99,8 +86,7 @@ func main() {
 			os.Exit(0)
 		}
 
-		// 4. ADVANCE TIME (Environmental pressure)
-		// This happens AFTER the action has been applied.
-		advanceTime(c)
+		// 4. ADVANCE TIME
+		s.AdvanceTime(c)
 	}
 }

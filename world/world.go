@@ -1,10 +1,36 @@
-package main
+package world
 
 import (
 	"fmt"
 	"math/rand"
+	"summit/data"
 	"time"
 )
+
+// Threat definitions in world package to avoid circular imports
+type ThreatLevel string
+
+const (
+	LevelNone    ThreatLevel = "none"
+	LevelWhisper ThreatLevel = "whisper"
+	LevelWarning ThreatLevel = "warning"
+	LevelCrisis  ThreatLevel = "crisis"
+)
+
+type ThreatType string
+
+const (
+	ThreatAMS       ThreatType = "AMS"
+	ThreatFrostbite ThreatType = "Frostbite"
+	ThreatOxygen    ThreatType = "Oxygen"
+)
+
+type ActiveThreat struct {
+	Type         ThreatType
+	Level        ThreatLevel
+	TurnsLeft    int
+	WarningActed bool
+}
 
 type WorldState struct {
 	Seed         int64
@@ -14,7 +40,7 @@ type WorldState struct {
 	WindSpeed    int
 	CampO2       map[int]int // Camp Index -> Bottle count (1 bottle = 3 charges)
 	WeatherCurve []int       // Wind speed per day
-	Archetype    ClimberArchetype
+	Archetype    data.ClimberArchetype
 }
 
 func NewWorldState(seed int64) *WorldState {
@@ -37,11 +63,11 @@ func NewWorldState(seed int64) *WorldState {
 		WindSpeed:    20,
 		WeatherCurve: curve,
 		CampO2: map[int]int{
-			LocBase:     99,
-			LocCamp1:    10,
-			LocCamp2:    8,
-			LocHighCamp: 6,
-			LocSummit:   0,
+			data.LocBase:     99,
+			data.LocCamp1:    10,
+			data.LocCamp2:    8,
+			data.LocHighCamp: 6,
+			data.LocSummit:   0,
 		},
 	}
 }
