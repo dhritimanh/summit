@@ -154,45 +154,25 @@ The numbers after each choice are shown explicitly at this stage — not because
 
 ---
 
-### Phase 2: Bicycle — Three climbers, warning timers (Tasks 7–12)
+### Phase 2: Bicycle — Architecture & Environmental Threats (Tasks 7–13)
 
-Three climbers. Loop through each one per turn. Add a second threat. Add the warning timer. Add choice gating. The question: does watching Erik deteriorate while you're dealing with Zara create a specific kind of dread?
+**Goal:** Can we scale our logic without breaking anything, and does a time-pressured warning feel different? (Still one climber)
 
-**What changes in the output:**
-```
-────────────────────────────────
- Day 5  |  09:00
- Zara     Camp 2   Fit:71  AMS:44  [OK]
- Marcus   Camp 1   Fit:88  AMS:22  [OK]
- Erik     Camp 1   Fit:63  AMS:71  [!!]
-────────────────────────────────
-
- RADIO LOG:
- [07:00] Zara — Camp 2. Wind picked up overnight.
- [09:00] !! Erik — AMS elevated: 71. Recommend assessment.
-         Warning expires in: 6 hrs
-
---- ERIK ---
- Fitness: 63   AMS: 71   Location: Camp 1
-
- [1] Order rest + oxygen      AMS -15 over 6hrs
- [2] Order descent to base    AMS -30, loses 2 days
- [3] Do nothing               Warning timer continues
-```
+Before adding complex systems like Frostbite, Meds, or Team Psychology, we need a rigorous architecture. We will introduce a centralized **Stat Application System** and **Unit Tests** to mathematically verify all core physics instead of relying purely on playtesting. Then, we add Wind and Frostbite.
 
 | # | Task | What to build |
 |---|------|---------------|
-| 7 | Three climbers | Array of climber structs, loop through each per turn for both time advance and threat check |
-| 8 | Team status line | One summary line per climber showing name, location, fitness, AMS, status tag [OK]/[!]/[!!] |
-| 9 | Second threat: frostbite | Triggers when wind speed (new field, randomised per turn at altitude) is high and climber has been exposed 3+ turns. Whisper: no output. Warning: log line. Crisis: finger/toe damage, permanent fitness cap reduced |
-| 10 | Warning timer | Each active warning stores a `turnsRemaining int`. Decrements each turn. When it hits 0, crisis fires regardless of player action |
-| 11 | Choice gating | `warningActedOn bool` field on each active warning. If false when crisis fires, remove the best choice from the options list |
-| 12 | Radio log as persistent list | Store last 10 log lines, print them above the current prompt every turn |
+| 7 | Stat & Modifier Abstraction | Create `ApplyStatChange(climber, stat, amount, source)` pattern. Ensure caps and modifiers (e.g., frostbite max-health limits, meds buffs, psych hits) trigger cleanly here instead of via direct value manipulation. |
+| 8 | Unit Testing Suite | Add `sim_test.go`. Write mathematical tests verifying Ambient Math (Base vs Death Zone), Night Penalties, and Resting mitigation to ensure verifiability. |
+| 9 | Wind Speed System | Add `WindSpeed int` to World state (sim.go). Varies predictably based on altitude + random gust factor. |
+| 10 | Second threat: frostbite | Triggers when wind speed is high and exposure turns > 3. Whisper: no output. Warning: log line. Crisis: permanent fitness cap reduction (handled by Task 7). |
+| 11 | Warning timer | Active warnings store `turnsRemaining int` (e.g., 4 turns). Decrements each turn. When it hits 0, crisis fires regardless of player action. |
+| 12 | Choice gating | `warningActedOn bool` field. If false when crisis fires, remove the best choice from the crisis panel. |
+| 13 | Radio log as persistent | Store last 10 log lines, print them above the current prompt every turn. |
 
-**New files:** Extract `climber.go` for the struct. `threat.go` for threat type and level constants. Everything else still in `main.go`.
+**New files:** Extract `threat.go` for threat type and level constants. `sim_test.go` for verifiability suite.
 
-**Pass condition:** Play it. When two climbers are in trouble simultaneously and you can only act on one this turn, does it feel genuinely bad to choose? If yes, continue.
-
+**Pass condition:** 1. `go test` passes perfectly. 2. Playtest: When a frostbite warning fires but you have a summit window opening, do you risk the turn to climb, or do you act?
 
 
 **Goal:** Does managing a team feel different from managing one person?
@@ -625,5 +605,28 @@ The design doc defines explicit pass conditions per phase:
 - `go vet ./...` passes at every phase
 - Unit tests for core mechanics: `AdvanceTime()`, `CheckThreats()`, `ApplyChoice()`, seed determinism (same seed → same run)
 
-### Manual Verification
-- Play each phase before proceeding to the next — **the design doc's rule: if the current vehicle isn't fun, fix it before building the next one**
+#### [MODIFY] Various UI files
+- Sequential stat reveals: values tick toward target at ~5 units/frame, never jump
+
+---
+
+### Phase 7: Interstellar — The Rope Team (Tasks 50–55)
+
+**Goal:** Does managing a team of 3–5 climbers feel like a different game?
+
+Now that the environmental simulation, UI, and sound are perfected for one person, we add the final layer: Team Complexity.
+
+| # | Task | What to build |
+|---|------|---------------|
+| 50 | Multi-Climber Array | Change `Sim.Zara` to `Sim.Team []Climber`. Update all loops to iterate per member. |
+| 51 | Support Logic | Being in the same camp as a teammate provides a +2 Fitness recovery bonus per turn. |
+| 52 | Interdynamics | New "Shared Warning" logic: if one climber is in Crisis, a teammate at the same location can use their action to help, improving the first climber's options. |
+| 53 | Personality Traits | Each climber archetype has a "Psychology" stat that affects how they react to others' failures. |
+| 54 | Team UI | Status summary line for all team members at the top of every screen. |
+| 55 | Stress Escalation | If more than 2 climbers are in warning state, AMS growth for everyone else is increased by 1.2x. |
+
+**Pass condition:** Play with 3 climbers. When two are in trouble simultaneously and you can only act on one this turn, does it create the intended "Sophie's Choice" dread?
+
+---
+
+## Complete file structure at interstellar stage

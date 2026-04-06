@@ -44,12 +44,25 @@ func advanceTime(c *Climber) {
 		// ALTITUDE SYSTEM: Passive decay and AMS accumulation
 		fitLoss := AltitudeFitLossMin + rng.Intn(AltitudeFitLossMax-AltitudeFitLossMin+1)
 		
+		isNight := hour >= 18 || hour < 6
+		if isNight {
+			fitLoss += 2
+		}
+
 		if c.Resting {
-			fitLoss = 1 // Resting significantly mitigates decay
+			if c.Altitude >= currentMountain.DeathZone {
+				fitLoss = 4 // Resting barely helps in death zone
+			} else {
+				fitLoss = 1 // Resting significantly mitigates decay
+			}
 		}
 
 		gainRange := amsGainByLoc[c.Loc]
 		amsGain := gainRange[0] + rng.Intn(gainRange[1]-gainRange[0]+1)
+		if isNight {
+			amsGain += 1
+		}
+
 		
 		c.Fitness = clamp(c.Fitness-fitLoss, FitnessMin, FitnessMax)
 		c.AMS = clamp(c.AMS+amsGain, AmsMin, AmsMax)

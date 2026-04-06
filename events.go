@@ -15,11 +15,19 @@ func whisperEvent(c *Climber) {
 func warningEvent(c *Climber) string {
 	logLine(fmt.Sprintf("!! %s — AMS elevated: %d. Headache. Warning expires in %d turns.", c.Name, c.AMS, c.WarningTurns))
 
+	restFitDelta := +8
+	restAmsDelta := -5
+	if c.Altitude >= currentMountain.DeathZone {
+		restFitDelta = +2
+		restAmsDelta = -1
+	}
+
 	choices := []Choice{
-		{Label: "Rest here (short)",      FitDelta: +8,  AmsDelta: -5,  LocDelta: 0, ClearsWarn: true},
+		{Label: "Rest here (short)",      FitDelta: restFitDelta,  AmsDelta: restAmsDelta,  LocDelta: 0, ClearsWarn: true},
 		{Label: "Descend one camp",       FitDelta: -5,  AmsDelta: -10, LocDelta: -1, ClearsWarn: true},
 		{Label: "Ignore it, keep moving", FitDelta: -8,  AmsDelta: +6,  LocDelta: 0, ClearsWarn: false},
 	}
+
 
 	printLog()
 	printStatus(c)
@@ -63,10 +71,25 @@ func crisisEvent(c *Climber) string {
 func normalTurn(c *Climber) string {
 	var choices []Choice
 
+	isNight := hour >= 18 || hour < 6
+	inDeathZone := c.Altitude >= currentMountain.DeathZone
+
+	restFitDelta := +5
+	restAmsDelta := -3
+	if inDeathZone {
+		restFitDelta = +1
+		restAmsDelta = 0
+	}
+
+	climbFitDelta := -10
+	if isNight {
+		climbFitDelta = -15
+	}
+
 	if c.Loc == LocSummit {
 		choices = []Choice{
 			{Label: "Begin descent",    FitDelta: -4,  AmsDelta: -4,  LocDelta: -1, ClearsWarn: false},
-			{Label: "Rest before descending", FitDelta: +6, AmsDelta: +2, LocDelta: 0, ClearsWarn: false},
+			{Label: "Rest before descending", FitDelta: restFitDelta, AmsDelta: restAmsDelta + 2, LocDelta: 0, ClearsWarn: false},
 			{Label: "Hold position",   FitDelta: -2,  AmsDelta: +3,  LocDelta: 0, ClearsWarn: false},
 		}
 		printLog()
@@ -79,11 +102,12 @@ func normalTurn(c *Climber) string {
 			advanceLabel = fmt.Sprintf("Continue climbing (%dm total)", currentMountain.CampAltitudes[c.Loc+1]-c.Altitude)
 		}
 		choices = []Choice{
-			{Label: advanceLabel,           FitDelta: -10, AmsDelta: +3,  LocDelta: +1, ClearsWarn: false},
+			{Label: advanceLabel,           FitDelta: climbFitDelta, AmsDelta: +3,  LocDelta: +1, ClearsWarn: false},
 			{Label: "Hold position",        FitDelta: -2,  AmsDelta: +1,  LocDelta: 0, ClearsWarn: false},
-			{Label: "Rest (3 hrs)",         FitDelta: +5,  AmsDelta: -3,  LocDelta: 0, ClearsWarn: false},
+			{Label: "Rest (3 hrs)",         FitDelta: restFitDelta,  AmsDelta: restAmsDelta,  LocDelta: 0, ClearsWarn: false},
 			{Label: "Descend one camp",     FitDelta: -4,  AmsDelta: -6,  LocDelta: -1, ClearsWarn: false},
 		}
+
 		printLog()
 		printStatus(c)
 	}

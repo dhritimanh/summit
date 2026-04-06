@@ -29,18 +29,15 @@
 
 ---
 
-## Next phase — Bicycle (not started)
+## Next phase — Bicycle (In Progress)
 
 ### What will be added
-- [ ] 3 climbers (array of structs, loop through each per turn)
-- [ ] Team status line: one row per climber per turn with [OK] / [!] / [!!] tags
-- [ ] Second threat type: Frostbite (wind speed + exposure turns)
-- [ ] Warning timer per-climber (not global)
-- [ ] Choice gating per-climber (warningActed bool)
-- [ ] Radio log shared across all climbers
-- [ ] Extract climber.go and threat.go from main.go
+- [ ] **Architecture & Verifiability**: Extract `ApplyStatChange` loop to safely handle modifiers (like Meds, Psych status, Frostbite debuffs) without breaking core logic.
+- [ ] **Automated Testing Suite**: `sim_test.go` to mathematically verify the simulation boundaries without playing an 8-hour session.
+- [ ] Wind Speed System + Frostbite threat (exposure).
+- [ ] Warning timers & Choice gating (removing options if warnings are ignored).
+- [ ] Radio log persistence.
 
-**Pass condition:** When two climbers are in trouble simultaneously and you can only act on one this turn, it feels genuinely bad to choose.
 
 ---
 
@@ -53,3 +50,5 @@
 | 3 | Skateboard | **BUG**: Whisper threshold (AMS≥35, 33% chance) too conservative — never appeared in playtest | ✅ Fixed — threshold lowered to AMS≥30, probability raised to 50% |
 | 4 | Skateboard | **BUG**: Resting at High Camp/Summit resulted in net fitness loss because environmental decay (6–10) exceeded rest bonus (+6/8) | ✅ Fixed — 'Rest' actions now halve environmental decay for that turn, and base bonus was buffed. |
 | 5 | Skateboard | **CRITICAL LOGIC BUG**: Environmental decay happened *before* player input. If fitness was low, player died "at the start of the turn" without a chance to Rest. | ✅ Fixed — Reordered loop: State Check -> Player Input -> Decay. Action results are processed *before* the environment takes its toll. |
+| 6 | Skateboard | **DEATH ZONE BUG**: Resting at the summit yielded a net positive fitness gain, allowing players to sleep infinitely at 8800m. | ✅ Fixed — Added Death Zone (8000m+) constraint to `sim.go` where resting recovery is neutralized and ambient pressure remains lethal. |
+| 7 | Skateboard | **LOGIC/REALISM BUG**: Climbing at night (or 24/7 uninterrupted) carried no penalty. | ✅ Fixed — Added Nighttime Penalty (18:00 to 06:00). Ambient decay increases by 2, and climbing costs -15 fitness instead of -10. |

@@ -39,22 +39,78 @@ func printLog() {
 
 func printStatus(c *Climber) {
 	fmt.Println()
-	fmt.Println("────────────────────────────────────────")
-	fmt.Printf("  Peak: %s\n", currentMountain.Name)
+	fmt.Println("╔" + strings.Repeat("═", 50) + "╗")
+	timeStr := fmt.Sprintf("%02d:00", hour)
+	if hour >= 18 || hour < 6 {
+		timeStr += " [NIGHT]"
+	}
+
+	fmt.Printf("║  %s — Day %d | %-13s | %-16s ║\n", currentMountain.Name, day, timeStr, c.Name)
+	fmt.Println("╠" + strings.Repeat("─", 50) + "╢")
+
 	status := currentMountain.CampNames[c.Loc]
 	if c.Altitude > currentMountain.CampAltitudes[c.Loc] && c.Loc < LocSummit {
-		status = fmt.Sprintf("Climbing towards %s", currentMountain.CampNames[c.Loc+1])
+		status = fmt.Sprintf("Climbing (%dm remaining)", currentMountain.CampAltitudes[c.Loc+1]-c.Altitude)
 	}
-	fmt.Printf("  Day %d | %02d:00  |  %s  |  %s\n", day, hour, c.Name, status)
+
+	// ─── NAVIGATOR ───
+	fmt.Printf("║  LOCATION: %-37s ║\n", status)
 	altStr := fmt.Sprintf("%dm", c.Altitude)
 	if c.Altitude >= currentMountain.DeathZone {
 		altStr += " [DEATH ZONE]"
 	}
-	fmt.Printf("  Altitude: %-12s Fitness: %-4d  AMS: %d\n", altStr, c.Fitness, c.AMS)
+	fmt.Printf("║  ALTITUDE: %-37s ║\n", altStr)
+	fmt.Println("╟" + strings.Repeat("─", 50) + "╢")
+
+	// ─── VITALS ───
+	fmt.Printf("║  FITNESS:  %-12d  AMS: %-19d ║\n", c.Fitness, c.AMS)
+	
 	if c.WarningActive {
-		fmt.Printf("  ⚠  Warning active — %d turn(s) before crisis\n", c.WarningTurns)
+		fmt.Printf("║  ⚠ WARNING: %-2d turns left before CRISIS     ║\n", c.WarningTurns)
 	}
-	fmt.Println("────────────────────────────────────────")
+	fmt.Println("╚" + strings.Repeat("═", 50) + "╝")
+
+	// DEVELOPER HUD (Internal Environmental Stats)
+	printDebug(c)
+}
+
+func printDebug(c *Climber) {
+	fmt.Println("\n  [ DEV HUD — INTERNAL SYSTEMS ]")
+	fmt.Println("  " + strings.Repeat("┈", 48))
+	
+	// Environment context
+	envType := "Passive Base Recovery"
+	if c.Loc > LocBase {
+		envType = "Altitude Decay Active"
+		if c.Altitude >= currentMountain.DeathZone {
+			envType += " (DEATH ZONE: Rest ineffective)"
+		}
+	}
+	fmt.Printf("  Mode:     %s\n", envType)
+	
+	// Decay/Recovery rates
+	if c.Loc > LocBase {
+		min, max := AltitudeFitLossMin, AltitudeFitLossMax
+		isNight := hour >= 18 || hour < 6
+		if isNight {
+			min += 2
+			max += 2
+			fmt.Printf("  Pressure: Fit -%d to -%d per turn (Night penalty)\n", min, max)
+		} else {
+			fmt.Printf("  Pressure: Fit -%d to -%d per turn\n", min, max)
+		}
+		if c.Resting {
+			if c.Altitude >= currentMountain.DeathZone {
+				fmt.Println("  Resting:  Environment decay reduced slightly (-4)")
+			} else {
+				fmt.Println("  Resting:  Environment decay reduced to -1")
+			}
+		}
+	} else {
+		fmt.Printf("  Passive recovery: Fit +%d, AMS -%d\n", BaseRecoveryFit, BaseRecoveryAms)
+	}
+	
+	fmt.Println("  " + strings.Repeat("┈", 48))
 }
 
 func printChoices(choices []Choice) {
