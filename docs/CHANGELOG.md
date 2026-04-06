@@ -29,15 +29,32 @@
 
 ---
 
-## Next phase — Bicycle (In Progress)
+## Phase 2 — Bicycle ✅
+**Built:** Extracted robust simulation architecture, Multi-Threat map parsing, Global Weather State
+**Status:** Build passes perfectly on `sim_test.go` suite. Ready for playtesting.
 
-### What will be added
-- [ ] **Architecture & Verifiability**: Extract `ApplyStatChange` loop to safely handle modifiers (like Meds, Psych status, Frostbite debuffs) without breaking core logic.
-- [ ] **Automated Testing Suite**: `sim_test.go` to mathematically verify the simulation boundaries without playing an 8-hour session.
-- [ ] Wind Speed System + Frostbite threat (exposure).
-- [ ] Warning timers & Choice gating (removing options if warnings are ignored).
-- [ ] Radio log persistence.
+### What was built
+- [x] **Architecture & Verifiability**: Abstracted stat updates into `ApplyStatChange` loop to safely handle modifiers (Caps, Buffs, Debuffs) without breaking core state math.
+- [x] **Automated Testing Suite**: `sim_test.go` math framework added. Verified Base Recovery, Night Penalty offsets, and Death Zone math.
+- [x] **New Thread Models**: `threat.go` created to track `ThreatType` and `ThreatLevel` dynamically.
+- [x] **Wind Speed & Frostbite**: `windSpeed` implemented in `sim.go`. Exceeding 60km/h adds `ExposureTurns`. Over 6 turns results in a Frostbite Crisis which permanently cuts `-25 Fitness`.
+- [x] **Choice Gating Scale**: Updated Warning timers and actions to tie to a dictionary map of threats `c.ActiveThreats` instead of purely hardcoded string flags.
+- [x] **Radio log persistence**: Completed via `ui.go` rendering logic.
 
+---
+
+## Phase 3 — Scooter (Complete)
+**Built:** Deterministic Seed-based RNG, Oxygen "Charges" system, Auto-reloading resources, Climber Archetypes, and a 4-day Weather Forecast engine.
+**Status:** 100% Complete. Modular structure improved for Phase 4 scaling. Verified by unit tests.
+
+### What has been built
+- [x] **Deterministic Seed**: Centralized `WorldState` initialized via `NewWorldState(seed)`.
+- [x] **Oxygen Mechanics**: "Charges" system (3 per bottle) with auto-reload from camp supplies.
+- [x] **Archetypes**: `ClimberArchetype` system affecting base fitness and AMS susceptibility.
+- [x] **Weather Forecast UI**: 4-day interactive panel showing upcoming wind speeds and probability ranges.
+- [x] **O2 Crisis**: High-stakes crisis event when oxygen is depleted at altitude.
+- [x] **Intelligent Modularization**: Logical file grouping (`engine_`, `data_`, `entity_`) to support Phase 4 expansion.
+- [x] **Summit Window**: Automated meteorology scan for stable low-wind periods.
 
 ---
 

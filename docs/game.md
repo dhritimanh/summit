@@ -175,22 +175,6 @@ Before adding complex systems like Frostbite, Meds, or Team Psychology, we need 
 **Pass condition:** 1. `go test` passes perfectly. 2. Playtest: When a frostbite warning fires but you have a summit window opening, do you risk the turn to climb, or do you act?
 
 
-**Goal:** Does managing a team feel different from managing one person?
-
-#### [NEW] [climber.go](file:///Users/raynwow/m_projects/anti/summit/climber.go)
-- `ClimberState` struct extracted from main
-- Array of 3 climbers, loop through each per turn
-
-#### [NEW] [threat.go](file:///Users/raynwow/m_projects/anti/summit/threat.go)
-- `ThreatType` and `ThreatLevel` enums
-- Second threat: frostbite (wind speed + exposure turns)
-- Warning timer: `turnsRemaining int`, decrements each turn, auto-escalates to crisis at 0
-- Choice gating: `warningActedOn bool` — if false at crisis time, best option removed
-
-#### [MODIFY] [main.go](file:///Users/raynwow/m_projects/anti/summit/main.go)
-- Team status line: one row per climber with `[OK]`/`[!]`/`[!!]` tags
-- Radio log as persistent list (last 10 lines, printed above prompt)
-
 ---
 
 ### Phase 3: Scooter — Resources, seeds, weather (Tasks 13–18)
@@ -198,16 +182,16 @@ Before adding complex systems like Frostbite, Meds, or Team Psychology, we need 
 Add resources. Add the seed system. Add weather. The question: after losing, do you immediately want to try again with a different approach?
 
 **What changes:**
-- Oxygen cylinders are now a real constraint. Each climber consumes 1 cylinder per turn at altitude when assigned O2. Running out mid-route triggers an oxygen crisis event.
+- Oxygen cylinders are now a real constraint. A standard oxygen bottle holds 3 "Charges" (approx 9 hours). Each climber consumes 1 Charge per turn (3 hours) at altitude when assigned O2. Running out mid-route triggers an oxygen crisis event.
 - The run starts with a seed number printed at the top. Each run, climber names, starting stats, weather curve, and event deck order are generated from this seed.
 - A 4-day weather forecast is visible. Confidence degrades for later days. The summit window appears and closes based on the seed — sometimes it's day 18, sometimes day 24.
 
 | # | Task | What to build |
 |---|------|---------------|
-| 13 | Oxygen resource | `o2PerCamp [4]int` array. Each turn at altitude, if climber has O2 assigned, decrement their camp's supply. If supply hits 0 mid-route, fire oxygen crisis event immediately |
-| 14 | Oxygen crisis event | Crisis panel: options are improvise descent (dangerous), share from another camp (requires porter turn), abort attempt. Available options depend on whether the O2 warning was acted on |
+| 13 | Oxygen resource | `CampO2 [4]int` array (measured in Bottles). 1 Bottle = 3 Charges. Climbers track `O2Charges int`. Each turn, if assigned O2, burn 1 charge. If 0, load a new bottle from camp if at camp. If no bottles, O2 Crisis immediately. |
+| 14 | Oxygen crisis event | Crisis panel: options are improvise descent (dangerous), push without O2 (massive AMS spike), abort attempt. |
 | 15 | Run seed | `rand.New(rand.NewSource(seed))` passed to all generation functions. Print seed at game start and game end |
-| 16 | Climber roster generation | Draw 3 climbers from archetype pool. Each archetype has stat ranges and one hidden trait (e.g. altitude sickness susceptibility means AMS ticks 1.5x faster) |
+| 16 | Climber archetype | Instead of a hardcoded "Zara", draw 1 active climber from an archetype pool based on the seed. Each archetype has stat ranges and one hidden trait (e.g. altitude sickness susceptibility means AMS ticks 1.5x faster) |
 | 17 | Weather curve generation | Generate 30-day pressure curve from seed. Summit window = consecutive days where wind < 40km/h. Window position varies per seed |
 | 18 | Event deck shuffle | All threat types in a list, shuffle order from seed. This determines which threat fires first in ambiguous situations |
 
@@ -222,8 +206,8 @@ Add resources. Add the seed system. Add weather. The question: after losing, do 
 **Goal:** Does each run feel different enough to play again?
 
 #### [NEW] [world/resource.go](file:///Users/raynwow/m_projects/anti/summit/world/resource.go)
-- O2 per camp array, food, fuel, medicine, money
-- O2 consumption: 1 cylinder/turn at altitude when assigned
+- O2 bottle arrays per camp, food, fuel, medicine, money
+- O2 consumption: 1 charge/turn (3 hours), 3 charges per bottle
 
 #### [NEW] [world/weather.go](file:///Users/raynwow/m_projects/anti/summit/world/weather.go)
 - 30-day pressure curve, wind speed, forecast (real + degraded)
@@ -232,7 +216,7 @@ Add resources. Add the seed system. Add weather. The question: after losing, do 
 - `RunSeed` struct wrapping `rand.Rand`, single source of truth
 
 #### [NEW] [rng/roster.go](file:///Users/raynwow/m_projects/anti/summit/rng/roster.go)
-- Generate 3 climbers from archetype pool with stat ranges and hidden traits
+- Generate the climber from an archetype pool with stat ranges and hidden traits
 
 #### [NEW] [rng/weather_seed.go](file:///Users/raynwow/m_projects/anti/summit/rng/weather_seed.go)
 - Generate weather curve from seed; summit window position varies per seed

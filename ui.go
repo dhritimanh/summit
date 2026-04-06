@@ -40,12 +40,13 @@ func printLog() {
 func printStatus(c *Climber) {
 	fmt.Println()
 	fmt.Println("╔" + strings.Repeat("═", 50) + "╗")
-	timeStr := fmt.Sprintf("%02d:00", hour)
-	if hour >= 18 || hour < 6 {
+	timeStr := fmt.Sprintf("%02d:00", session.Hour)
+	if session.Hour >= 18 || session.Hour < 6 {
 		timeStr += " [NIGHT]"
 	}
 
-	fmt.Printf("║  %s — Day %d | %-13s | %-16s ║\n", currentMountain.Name, day, timeStr, c.Name)
+	fmt.Printf("║  %s — Day %d | %-13s | %-16s ║\n", currentMountain.Name, session.Day, timeStr, c.Name)
+
 	fmt.Println("╠" + strings.Repeat("─", 50) + "╢")
 
 	status := currentMountain.CampNames[c.Loc]
@@ -63,16 +64,33 @@ func printStatus(c *Climber) {
 	fmt.Println("╟" + strings.Repeat("─", 50) + "╢")
 
 	// ─── VITALS ───
+	o2Bar := strings.Repeat("█", c.O2Charges) + strings.Repeat("░", 3-c.O2Charges)
 	fmt.Printf("║  FITNESS:  %-12d  AMS: %-19d ║\n", c.Fitness, c.AMS)
+	fmt.Printf("║  OXYGEN:   %-12s  O2 Charges: %d/3        ║\n", o2Bar, c.O2Charges)
+
 	
-	if c.WarningActive {
-		fmt.Printf("║  ⚠ WARNING: %-2d turns left before CRISIS     ║\n", c.WarningTurns)
+	hasWarning := false
+	warnTurns := 99
+	for _, t := range c.ActiveThreats {
+		if t.Level == LevelWarning {
+			hasWarning = true
+			if t.TurnsLeft < warnTurns {
+				warnTurns = t.TurnsLeft
+			}
+		}
+	}
+	if hasWarning {
+		fmt.Printf("║  ⚠ WARNING: %-2d turns left before CRISIS     ║\n", warnTurns)
 	}
 	fmt.Println("╚" + strings.Repeat("═", 50) + "╝")
 
 	// DEVELOPER HUD (Internal Environmental Stats)
 	printDebug(c)
+
+	// FORECAST
+	printForecast()
 }
+
 
 func printDebug(c *Climber) {
 	fmt.Println("\n  [ DEV HUD — INTERNAL SYSTEMS ]")
@@ -86,13 +104,17 @@ func printDebug(c *Climber) {
 			envType += " (DEATH ZONE: Rest ineffective)"
 		}
 	}
+	fmt.Printf("  Expedition Seed: %d | Archetype: %s (Sus: %.1fx)\n", session.Seed, session.Archetype.NamePool[0], session.Archetype.AMSSusPercent)
+
 	fmt.Printf("  Mode:     %s\n", envType)
+
 	
 	// Decay/Recovery rates
 	if c.Loc > LocBase {
 		min, max := AltitudeFitLossMin, AltitudeFitLossMax
-		isNight := hour >= 18 || hour < 6
+		isNight := session.Hour >= 18 || session.Hour < 6
 		if isNight {
+
 			min += 2
 			max += 2
 			fmt.Printf("  Pressure: Fit -%d to -%d per turn (Night penalty)\n", min, max)
@@ -110,8 +132,27 @@ func printDebug(c *Climber) {
 		fmt.Printf("  Passive recovery: Fit +%d, AMS -%d\n", BaseRecoveryFit, BaseRecoveryAms)
 	}
 	
+	fmt.Printf("  Weather:  Wind %d km/h | Exposure: %d turns\n", session.WindSpeed, c.ExposureTurns)
+	
+	// Camp resources
+	fmt.Print("  Supplies: ")
+	for i := LocCamp1; i <= LocHighCamp; i++ {
+		fmt.Printf("%s: %d O2 | ", currentMountain.CampNames[i], session.CampO2[i])
+	}
+	fmt.Println()
+
 	fmt.Println("  " + strings.Repeat("┈", 48))
 }
+
+func printForecast() {
+	fmt.Println(" FORECAST (Next 4 days):")
+	forecast := session.GetForecast(session.Day)
+	for _, line := range forecast {
+		fmt.Println("  → " + line)
+	}
+	fmt.Println()
+}
+
 
 func printChoices(choices []Choice) {
 	fmt.Println()
@@ -156,13 +197,13 @@ func readChoice(c *Climber, choices []Choice) string {
 }
 
 func applyChoice(c *Climber, ch Choice) {
-	c.Fitness = clamp(c.Fitness+ch.FitDelta, FitnessMin, FitnessMax)
-	c.AMS = clamp(c.AMS+ch.AmsDelta, AmsMin, AmsMax)
+	ApplyStatChange(c, "Fitness", ch.FitDelta, "Choice")
+	ApplyStatChange(c, "AMS", ch.AmsDelta, "Choice")
 	
 	// Complex Location/Height Logic
 	if ch.LocDelta > 0 {
 		// Climb Logic (~300m - 550m in 3 hours)
-		climbGain := 300 + rng.Intn(250)
+		climbGain := 300 + session.Rng.Intn(250)
 		c.Altitude += climbGain
 		target := currentMountain.CampAltitudes[c.Loc+1]
 		if c.Altitude >= target {
@@ -178,10 +219,15 @@ func applyChoice(c *Climber, ch Choice) {
 	}
 
 	if ch.ClearsWarn {
-		c.WarningActive = false
-		c.WarningActed = true
+		for k, t := range c.ActiveThreats {
+			if t.Level == LevelWarning {
+				t.WarningActed = true
+				delete(c.ActiveThreats, k)
+			}
+		}
 	}
 	if strings.Contains(ch.Label, "Rest") {
 		c.Resting = true
 	}
 }
+

@@ -15,16 +15,28 @@ func main() {
 	fmt.Println("  Enter 1–4 to choose. 'q' to quit.")
 	fmt.Println()
 
+	// Initialize global session
+	session = NewWorldState(0)
+	
+	// Select Archetype and Name
+	session.Archetype = GetRandomArchetype(session)
+	name := session.Archetype.NamePool[session.Rng.Intn(len(session.Archetype.NamePool))]
+
 	// Climber state
 	c := &Climber{
-		Name:     "Zara",
-		Fitness:  90,
-		AMS:      0,
-		Loc:      LocBase,
-		Altitude: currentMountain.CampAltitudes[LocBase],
+		Name:          name,
+		Fitness:       session.Archetype.BaseFitness,
+		AMS:           0,
+		Loc:           LocBase,
+		Altitude:      currentMountain.CampAltitudes[LocBase],
+		ActiveThreats: make(map[ThreatType]*ActiveThreat),
+		O2Charges:     3, // Standard start
 	}
 
+
+	fmt.Printf(" [ SESSION SEED: %d ]\n", session.Seed)
 	logLine(fmt.Sprintf("%s — %s. Ready to move. Clear skies.", c.Name, currentMountain.Name))
+
 
 	for {
 		// 1. CHECK TERMINAL (Win/Loss)
@@ -68,16 +80,18 @@ func main() {
 
 		// 3. PLAYER INPUT (Get choice and apply it)
 		var result string
-		switch threat {
-		case "whisper":
-			whisperEvent(c)
+		if threat == nil || threat.Level == LevelNone {
 			result = normalTurn(c)
-		case "warning":
-			result = warningEvent(c)
-		case "crisis":
-			result = crisisEvent(c)
-		default:
-			result = normalTurn(c)
+		} else {
+			switch threat.Level {
+			case LevelWhisper:
+				whisperEvent(c, threat)
+				result = normalTurn(c)
+			case LevelWarning:
+				result = warningEvent(c, threat)
+			case LevelCrisis:
+				result = crisisEvent(c, threat)
+			}
 		}
 
 		if result == "quit" {

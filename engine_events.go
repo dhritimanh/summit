@@ -2,18 +2,33 @@ package main
 
 import "fmt"
 
-func whisperEvent(c *Climber) {
-	// Whisper: Subtle log blips only
-	lines := []string{
-		fmt.Sprintf("%s — moving slower than usual today.", c.Name),
-		fmt.Sprintf("%s — check-in at %02d:00. Short.", c.Name, hour),
-		fmt.Sprintf("%s — fine.", c.Name),
+func whisperEvent(c *Climber, t *ActiveThreat) {
+	// Whisper: Subtle log blips only. We can vary text based on type.
+	var lines []string
+	if t.Type == ThreatFrostbite {
+		lines = []string{
+			fmt.Sprintf("%s — hands getting numb.", c.Name),
+			fmt.Sprintf("%s — wind is brutal up here.", c.Name),
+			fmt.Sprintf("%s — shivering heavily.", c.Name),
+		}
+	} else {
+		lines = []string{
+			fmt.Sprintf("%s — moving slower than usual today.", c.Name),
+			fmt.Sprintf("%s — check-in at %02d:00. Short.", c.Name, session.Hour),
+			fmt.Sprintf("%s — fine.", c.Name),
+		}
 	}
-	logLine(lines[rng.Intn(len(lines))])
+
+	logLine(lines[session.Rng.Intn(len(lines))])
 }
 
-func warningEvent(c *Climber) string {
-	logLine(fmt.Sprintf("!! %s — AMS elevated: %d. Headache. Warning expires in %d turns.", c.Name, c.AMS, c.WarningTurns))
+
+func warningEvent(c *Climber, t *ActiveThreat) string {
+	if t.Type == ThreatFrostbite {
+		logLine(fmt.Sprintf("!! %s — FROSTBITE RISK. High winds. Warning expires in %d turns.", c.Name, t.TurnsLeft))
+	} else {
+		logLine(fmt.Sprintf("!! %s — AMS elevated: %d. Headache. Warning expires in %d turns.", c.Name, c.AMS, t.TurnsLeft))
+	}
 
 	restFitDelta := +8
 	restAmsDelta := -5
@@ -32,16 +47,28 @@ func warningEvent(c *Climber) string {
 	printLog()
 	printStatus(c)
 	fmt.Println()
-	fmt.Println("  !  AMS WARNING — act within the timer or face a harder crisis")
+	if t.Type == ThreatFrostbite {
+		fmt.Println("  !  FROSTBITE WARNING — prolonged exposure. Act soon.")
+	} else {
+		fmt.Println("  !  AMS WARNING — act within the timer or face a harder crisis")
+	}
 	printChoices(choices)
 
 	return readChoice(c, choices)
 }
 
-func crisisEvent(c *Climber) string {
+func crisisEvent(c *Climber, t *ActiveThreat) string {
 	var choices []Choice
-	if c.WarningActed {
+	if t.Type == ThreatOxygen {
+		// Oxygen depletion crisis
+		choices = []Choice{
+			{Label: "Improvise emergency descent", FitDelta: -20, AmsDelta: -10, LocDelta: -1, ClearsWarn: false},
+			{Label: "Push without O2 (Massive AMS)", FitDelta: -10, AmsDelta: +30,  LocDelta: 0,  ClearsWarn: false},
+			{Label: "Abort and stay (Dangerous)", FitDelta: -5,  AmsDelta: +10,  LocDelta: 0,  ClearsWarn: false},
+		}
+	} else if t.WarningActed {
 		// Player was responsible: better recovery options
+
 		choices = []Choice{
 			{Label: "Emergency dex injection",  FitDelta: +5,  AmsDelta: -15, LocDelta: 0, ClearsWarn: false},
 			{Label: "Immediate descent",        FitDelta: -15, AmsDelta: -20, LocDelta: -2, ClearsWarn: false},
@@ -59,10 +86,18 @@ func crisisEvent(c *Climber) string {
 	printLog()
 	printStatus(c)
 	fmt.Println()
-	fmt.Println("  !!  AMS CRISIS — situation critical")
-	if !c.WarningActed {
+	if t.Type == ThreatFrostbite {
+		fmt.Println("  !!  FROSTBITE CRISIS — permanent damage sustained (-25 Max Fitness).")
+	} else if t.Type == ThreatOxygen {
+		fmt.Println("  !!  OXYGEN CRISIS — you are out of supplemental air!")
+	} else {
+		fmt.Println("  !!  AMS CRISIS — situation critical")
+	}
+	
+	if !t.WarningActed && t.Type != ThreatOxygen {
 		fmt.Println("      (you ignored the warning — options are limited)")
 	}
+
 	printChoices(choices)
 
 	return readChoice(c, choices)
@@ -71,7 +106,7 @@ func crisisEvent(c *Climber) string {
 func normalTurn(c *Climber) string {
 	var choices []Choice
 
-	isNight := hour >= 18 || hour < 6
+	isNight := session.Hour >= 18 || session.Hour < 6
 	inDeathZone := c.Altitude >= currentMountain.DeathZone
 
 	restFitDelta := +5
@@ -80,6 +115,7 @@ func normalTurn(c *Climber) string {
 		restFitDelta = +1
 		restAmsDelta = 0
 	}
+
 
 	climbFitDelta := -10
 	if isNight {
