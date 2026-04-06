@@ -113,48 +113,48 @@ A second team is always on the mountain. Their climbers appear as grey semi-tran
 
 ## Build sequence — skateboard to rocket
 
-**Rule: if the current vehicle isn't fun, fix it before building the next one.**
-
 ---
 
-### Skateboard — does one decision feel consequential?
+### Phase 1: Skateboard — One climber, terminal only (Tasks 1–6)
+
+**Goal:** Does one decision feel consequential?
 
 One climber. Terminal output only. No graphics. The question being answered: does reading a log line and picking a number create genuine tension?
 
 **What the terminal output looks like:**
 ```
 ────────────────────────────────
- Day 3  |  Zara  |  Camp 1
- Fitness: 71   AMS: 58
+ Day 3  |  09:00  |  Zara  |  Camp 1
+ Altitude: 6065m   Fitness: 71   AMS: 58
 ────────────────────────────────
 
- !  [Zara] AMS elevated: 58. Headache, moving slow.
+ !  [Zara] AMS elevated: 58. Headache. Warning expires in 4 turns.
 
- [1] Rest here 6hrs          fitness -5, AMS -10
- [2] Descend one camp        fitness -10, AMS -20
- [3] Ignore it, keep moving  fitness -15, AMS +12
+ [1] Rest here (short)       fitness +8, AMS -5
+ [2] Descend one camp        fitness -5, AMS -10
+ [3] Ignore it, keep moving  fitness -8, AMS +6
 
 >
 ```
 
-The numbers after each choice are shown explicitly at this stage — not because the final game shows them, but because during the skateboard you need to verify the mechanics are working correctly before hiding information.
+The numbers after each choice are shown explicitly at this stage — not because the final game shows them, but because during the skateboard you need to verify the mechanics are working correctly before hiding information. Note: We have already implemented the 3-hour tactical turn system (8 turns/day) for better control.
 
 | # | Task | What to build |
 |---|------|---------------|
-| 1 | Climber struct | `name string`, `fitness int` (0–100), `ams int` (0–100), `loc int` (0=base, 1=camp1, 2=camp2, 3=summit) |
-| 2 | `RunGame()` loop | Each iteration: call `AdvanceTime()`, call `CheckThreats()`, call `PrintStatus()`, read stdin, call `ApplyChoice()` |
-| 3 | `AdvanceTime()` | At altitude: fitness -8/turn, AMS +2–8 randomly. At base: fitness +12/turn, AMS -15/turn |
-| 4 | `CheckThreats()` | AMS ≥35 and rand: print whisper log line, no pause. AMS ≥55: print warning log line, offer 3 choices. AMS ≥80: print crisis panel, offer 3 choices (worst options only — no warning was acted on) |
-| 5 | `ApplyChoice()` | Apply fitness delta, AMS delta, location delta from chosen option |
-| 6 | Win/lose checks | Fitness ≤0: print death message, exit. Loc==3: print summit message. Loc==0 after summit: print success, exit |
+| 1 | Climber & Mountain | `Climber` with `name`, `fitness` (0-100), `ams` (0-100), `altitude` (meters). `Mountain` modular (Everest-scale: Base 5364m to Summit 8848m) |
+| 2 | `RunGame()` loop | Action → Decay → Check logic to ensure players can respond to threats before environmental impact. |
+| 3 | `AdvanceTime()` | 3-hour turns. At altitude: fitness -3 to -5, AMS scales by height. Resting significantly mitigates decay. |
+| 4 | `CheckThreats()` | Whisper (AMS≥30, 50% chance). Warning (AMS≥55, 12h timer). Crisis (AMS≥80 or timeout, restricted choices). |
+| 5 | `ApplyChoice()` | Apply fitness/AMS deltas. Advance height (~400m/turn climb). Reaching next camp takes 2-4 turns. |
+| 6 | Win/lose checks | Fitness≤0 or AMS=100: death. Loc==summit: victory marker. Loc==base after summit: success + exit. |
 
-**Files:** everything in `main.go`. No packages. No subdirectories.
+**Files:** Modular structure across `main.go`, `climber.go`, `sim.go`, `ui.go`, `events.go`, and `mountain.go`. This is **Better** than the original "Single file" requirement as it prepares for scale.
 
-**Pass condition:** Play it. Does the moment where AMS hits 80 feel bad? Does reaching the summit feel good? If yes, continue.
+**Pass condition:** Play it. Does the moment where AMS hits 80 feel bad? Does the 8,000m+ Death Zone feel terrifying? If yes, continue.
 
 ---
 
-### Bicycle — does managing a team feel different from managing one person?
+### Phase 2: Bicycle — Three climbers, warning timers (Tasks 7–12)
 
 Three climbers. Loop through each one per turn. Add a second threat. Add the warning timer. Add choice gating. The question: does watching Erik deteriorate while you're dealing with Zara create a specific kind of dread?
 
@@ -193,9 +193,27 @@ Three climbers. Loop through each one per turn. Add a second threat. Add the war
 
 **Pass condition:** Play it. When two climbers are in trouble simultaneously and you can only act on one this turn, does it feel genuinely bad to choose? If yes, continue.
 
+
+
+**Goal:** Does managing a team feel different from managing one person?
+
+#### [NEW] [climber.go](file:///Users/raynwow/m_projects/anti/summit/climber.go)
+- `ClimberState` struct extracted from main
+- Array of 3 climbers, loop through each per turn
+
+#### [NEW] [threat.go](file:///Users/raynwow/m_projects/anti/summit/threat.go)
+- `ThreatType` and `ThreatLevel` enums
+- Second threat: frostbite (wind speed + exposure turns)
+- Warning timer: `turnsRemaining int`, decrements each turn, auto-escalates to crisis at 0
+- Choice gating: `warningActedOn bool` — if false at crisis time, best option removed
+
+#### [MODIFY] [main.go](file:///Users/raynwow/m_projects/anti/summit/main.go)
+- Team status line: one row per climber with `[OK]`/`[!]`/`[!!]` tags
+- Radio log as persistent list (last 10 lines, printed above prompt)
+
 ---
 
-### Scooter — does each run feel different enough to play again?
+### Phase 3: Scooter — Resources, seeds, weather (Tasks 13–18)
 
 Add resources. Add the seed system. Add weather. The question: after losing, do you immediately want to try again with a different approach?
 
@@ -217,9 +235,41 @@ Add resources. Add the seed system. Add weather. The question: after losing, do 
 
 **Pass condition:** Lose a run. Immediately start a new one with a different seed. Does the new run feel like a genuinely different situation? If yes, continue.
 
+
+
+
+
+**Goal:** Does each run feel different enough to play again?
+
+#### [NEW] [world/resource.go](file:///Users/raynwow/m_projects/anti/summit/world/resource.go)
+- O2 per camp array, food, fuel, medicine, money
+- O2 consumption: 1 cylinder/turn at altitude when assigned
+
+#### [NEW] [world/weather.go](file:///Users/raynwow/m_projects/anti/summit/world/weather.go)
+- 30-day pressure curve, wind speed, forecast (real + degraded)
+
+#### [NEW] [rng/seed.go](file:///Users/raynwow/m_projects/anti/summit/rng/seed.go)
+- `RunSeed` struct wrapping `rand.Rand`, single source of truth
+
+#### [NEW] [rng/roster.go](file:///Users/raynwow/m_projects/anti/summit/rng/roster.go)
+- Generate 3 climbers from archetype pool with stat ranges and hidden traits
+
+#### [NEW] [rng/weather_seed.go](file:///Users/raynwow/m_projects/anti/summit/rng/weather_seed.go)
+- Generate weather curve from seed; summit window position varies per seed
+
+#### [NEW] [rng/event_deck.go](file:///Users/raynwow/m_projects/anti/summit/rng/event_deck.go)
+- Shuffle threat firing order from seed
+
+#### [NEW] [data/climber_archetypes.go](file:///Users/raynwow/m_projects/anti/summit/data/climber_archetypes.go)
+- Archetype pool: name pools, stat ranges, hidden traits (e.g., AMS susceptibility = 1.5x tick rate)
+
+#### [MODIFY] [main.go](file:///Users/raynwow/m_projects/anti/summit/main.go)
+- Oxygen crisis event with gated choices
+- Seed printed at start and end of run
+
 ---
 
-### Car — does the mountain feel like a place?
+### Phase 4: Car — First graphical stage with Ebitengine (Tasks 19–26)
 
 This is the first graphical stage. Ebitengine (Go) or Löve2D (Lua) — the builder chooses based on language decision. The question: do the dots on the mountain communicate danger before the player reads any numbers?
 
@@ -252,9 +302,48 @@ When a crisis fires: the background dims to 40% opacity, a panel slides in from 
 
 **Pass condition:** Watch the dots for 60 seconds without reading any numbers. Can you tell which climber is in trouble from dot behaviour alone? If yes, continue.
 
+
+
+**Goal:** Do the dots on the mountain communicate danger before the player reads any numbers?
+
+#### [NEW] [ui/ui.go](file:///Users/raynwow/m_projects/anti/summit/ui/ui.go)
+- Implements `ebiten.Game` interface (`Update()`, `Draw()`, `Layout()`)
+- Owns all sub-panels, routes input
+
+#### [NEW] [ui/map_view.go](file:///Users/raynwow/m_projects/anti/summit/ui/map_view.go)
+- Mountain polygon silhouette, fixed camp altitude positions
+- Climber dots: color by AMS threshold (white/amber/red), pulse animation via `sin(time * pulseSpeed)`
+
+#### [NEW] [ui/climber_panel.go](file:///Users/raynwow/m_projects/anti/summit/ui/climber_panel.go)
+- Opens on dot click: name, stats, location, action buttons
+
+#### [NEW] [ui/event_panel.go](file:///Users/raynwow/m_projects/anti/summit/ui/event_panel.go)
+- Crisis overlay: dim background, slide-in animation, countdown timer, choice buttons
+
+#### [NEW] [ui/radio_log.go](file:///Users/raynwow/m_projects/anti/summit/ui/radio_log.go)
+- Scrolling monospace log panel, last N lines visible
+
+#### [NEW] [ui/resource_panel.go](file:///Users/raynwow/m_projects/anti/summit/ui/resource_panel.go)
+- O2 cylinder icons per camp, food/fuel/medicine counters
+
+#### [NEW] [ui/hud.go](file:///Users/raynwow/m_projects/anti/summit/ui/hud.go)
+- Speed controls (Pause/1x/4x/12x), day/time display
+
+#### [NEW] [sim/sim.go](file:///Users/raynwow/m_projects/anti/summit/sim/sim.go)
+- `Sim` struct: owns World, ThreatRegistry, EventQueue
+
+#### [NEW] [sim/tick.go](file:///Users/raynwow/m_projects/anti/summit/sim/tick.go)
+- `Tick()`: AdvanceTime → ThreatEval → WarningTimers → EventQueue.Drain
+
+#### [NEW] [clock/game_clock.go](file:///Users/raynwow/m_projects/anti/summit/clock/game_clock.go)
+- Tick interval, speed multiplier (0/1/4/12x), pause flag
+
+#### [MODIFY] [main.go](file:///Users/raynwow/m_projects/anti/summit/main.go)
+- Switches from terminal loop to `ebiten.RunGame()`
+
 ---
 
-### Plane — does the game feel alive?
+### Phase 5: Plane — Sound and animation, Balatro-style feedback (Tasks 27–34)
 
 Sound and animation. The Balatro principle: every consequence plays out as a sequence of micro-events, each with its own feedback. The question: does the oxygen number dropping feel like something before you consciously read it?
 
@@ -273,9 +362,38 @@ Sound and animation. The Balatro principle: every consequence plays out as a seq
 
 **Pass condition:** Turn off your monitor and listen to the game for 30 seconds. Can you tell when a crisis fires and when things are calm from sound alone? If yes, continue.
 
+
+
+
+
+**Goal:** Does the oxygen number dropping *feel* like something before you consciously read it?
+
+#### [NEW] [audio/audio.go](file:///Users/raynwow/m_projects/anti/summit/audio/audio.go)
+- Initialize audio system, master volume control
+
+#### [NEW] [audio/sounds.go](file:///Users/raynwow/m_projects/anti/summit/audio/sounds.go)
+- Load sound assets, play functions with pitch parameter
+- Pitched AMS tick pings, hollow O2 click, warning tone, crisis thud + screen shake, summit chime
+
+#### [NEW] [audio/drone.go](file:///Users/raynwow/m_projects/anti/summit/audio/drone.go)
+- Continuous ambient loop, pitch/volume driven by aggregate danger level each frame
+
+#### [MODIFY] [ui/map_view.go](file:///Users/raynwow/m_projects/anti/summit/ui/map_view.go)
+- Idle dot animation: all dots pulse at all times, speed/amplitude increase with danger
+
+#### [MODIFY] [ui/event_panel.go](file:///Users/raynwow/m_projects/anti/summit/ui/event_panel.go)
+- Enhanced entrance: 1-frame white flash → dim over 0.5s → slide-in with ease-out
+
+#### [MODIFY] [ui/radio_log.go](file:///Users/raynwow/m_projects/anti/summit/ui/radio_log.go)
+- Typewriter text: crisis lines reveal 1 char/40ms with tick sound; normal lines instant
+- Prevention confirmation line when warning clears
+
+#### [MODIFY] Various UI files
+- Sequential stat reveals: values tick toward target at ~5 units/frame, never jump
+
 ---
 
-### Rocket — does every system talk to every other system?
+### Phase 6: Rocket — Full systems integration (Tasks 35–49)
 
 The full design. Catalysts corrupt information. Dominoes make fixes costly. Compounds make neglect catastrophic. The rival is a silent clock.
 
@@ -298,6 +416,73 @@ The full design. Catalysts corrupt information. Dominoes make fixes costly. Comp
 | 49 | Save / load | Serialise full `World` + `ThreatRegistry` + `clock` state to JSON. Load restores exact state. Auto-save every in-game day |
 
 **All packages now live:** `world/`, `catalyst/`, `threat/` + `definitions/`, `resolution/`, `clock/`, `sim/`, `ui/`, `audio/`, `rng/`, `data/`, `save/`
+
+
+
+
+**Goal:** Does every system talk to every other system?
+
+#### [NEW] [catalyst/catalyst.go](file:///Users/raynwow/m_projects/anti/summit/catalyst/catalyst.go)
+- `FilteredWorld` struct: copy of World with visibility flags
+- `Apply(world) → FilteredWorld` — all UI reads from filtered copy only
+
+#### [NEW] [catalyst/comms_filter.go](file:///Users/raynwow/m_projects/anti/summit/catalyst/comms_filter.go)
+- Garble radio log text, hide AMS numbers (`--`)
+
+#### [NEW] [catalyst/sensor_filter.go](file:///Users/raynwow/m_projects/anti/summit/catalyst/sensor_filter.go)
+- Freeze barometer reading in filtered copy
+
+#### [NEW] [catalyst/info_tier.go](file:///Users/raynwow/m_projects/anti/summit/catalyst/info_tier.go)
+- Basic/Enhanced/Expert tiers, upgrade button, tier-based visibility
+
+#### [NEW] [resolution/action_resolver.go](file:///Users/raynwow/m_projects/anti/summit/resolution/action_resolver.go)
+- Apply stat deltas, call domino seeder after
+
+#### [NEW] [resolution/domino_seeder.go](file:///Users/raynwow/m_projects/anti/summit/resolution/domino_seeder.go)
+- Lookup action type in domino table, plant delayed whisper
+
+#### [NEW] [resolution/choice_scoper.go](file:///Users/raynwow/m_projects/anti/summit/resolution/choice_scoper.go)
+- Gate choices by warning history + resource availability
+
+#### [NEW] [threat/compound.go](file:///Users/raynwow/m_projects/anti/summit/threat/compound.go)
+- Detect overlapping L3 crises, build merged panel with fewer choices
+
+#### [NEW] [threat/definitions/*.go](file:///Users/raynwow/m_projects/anti/summit/threat/definitions/) (12 files)
+- All 12 threat types: HACE, HAPE, Summit Fever, Frostbite, Oxygen Crisis, Weather Break, Serac Collapse, Porter Strike, Psych Break, Rival Trouble, Equipment Fail, Sponsor Pressure
+
+#### [NEW] [world/rival.go](file:///Users/raynwow/m_projects/anti/summit/world/rival.go)
+- Grey dots, independent schedule from seed, help/ignore events
+
+#### [NEW] [ui/topdown_view.go](file:///Users/raynwow/m_projects/anti/summit/ui/topdown_view.go)
+- Toggle between side view and top-down tile grid
+
+#### [NEW] [ui/weather_panel.go](file:///Users/raynwow/m_projects/anti/summit/ui/weather_panel.go)
+- Forecast rows, confidence bars, barometer + trend arrow
+
+#### [NEW] [clock/wall_clock.go](file:///Users/raynwow/m_projects/anti/summit/clock/wall_clock.go)
+- Real-time 4-minute countdown for crisis panels, independent of game speed
+
+#### [NEW] [clock/warning_timer.go](file:///Users/raynwow/m_projects/anti/summit/clock/warning_timer.go)
+- Per-warning game-time expiry counter
+
+#### [NEW] [rng/route.go](file:///Users/raynwow/m_projects/anti/summit/rng/route.go)
+- Generate route variant: segment types per altitude band
+
+#### [NEW] [data/event_templates.go](file:///Users/raynwow/m_projects/anti/summit/data/event_templates.go)
+- All whisper/warning/crisis text strings indexed by ThreatType + Level
+
+#### [NEW] [data/domino_table.go](file:///Users/raynwow/m_projects/anti/summit/data/domino_table.go)
+- `map[ActionType][]DominoRule` — what each resolution spawns
+
+#### [NEW] [save/save.go](file:///Users/raynwow/m_projects/anti/summit/save/save.go)
+- Serialize full state to JSON
+
+#### [NEW] [save/load.go](file:///Users/raynwow/m_projects/anti/summit/save/load.go)
+- Deserialize and restore, validate version compatibility
+
+---
+
+
 
 ---
 
@@ -420,3 +605,25 @@ summit/
 **Plane:** Stat changes feel weighty. Sound tells you how dangerous things are before you read numbers. Prevention feels rewarding because the game confirms it.
 
 **Rocket:** Every system affects every other system. A comms blackout during a frostbite warning during an oxygen shortage feels like a specific kind of hell that the player created through their own decisions. The seed at the end makes you want to share the run.
+
+## Verification Plan
+
+### Each Phase — Play Test
+The design doc defines explicit pass conditions per phase:
+
+| Phase | Pass Condition |
+|---|---|
+| Skateboard | AMS hitting 80 feels bad. Reaching summit feels good. |
+| Bicycle | Choosing between two climbers in trouble feels genuinely bad. |
+| Scooter | Different seed = meaningfully different run. Immediate retry desire after losing. |
+| Car | Can tell which climber is in trouble from dot behavior alone (60s, no numbers). |
+| Plane | Can tell crisis vs calm from sound alone (30s, monitor off). |
+| Rocket | Comms blackout + frostbite warning + oxygen shortage = specific kind of hell built by player decisions. |
+
+### Automated Tests
+- `go build ./...` compiles cleanly at every phase
+- `go vet ./...` passes at every phase
+- Unit tests for core mechanics: `AdvanceTime()`, `CheckThreats()`, `ApplyChoice()`, seed determinism (same seed → same run)
+
+### Manual Verification
+- Play each phase before proceeding to the next — **the design doc's rule: if the current vehicle isn't fun, fix it before building the next one**
