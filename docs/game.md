@@ -571,4 +571,38 @@ summit/
 
 ---
 
+## 8. Technical Architecture & Extension Guide
+
+The *Summit* engine is built as a "Headless" simulation with a detachable GUI. It follows a strict data-driven approach to ensure that the core survival math is verifiable and decoupled from the rendering.
+
+### Package Responsibilities
+- **`world/`**: The "Source of Truth." Contains low-level state (`Climber`, `WorldState`) and basic stat-clamping logic. 
+- **`sim/`**: The "Orchestrator." Handles the physics of altitude, oxygen, and threats. It is the only package that should mutate `Climber` vitals based on environment.
+- **`ui/`**: The "Dashboard." An Ebitengine (60 FPS) layer that reads the `Sim` state. It handles mouse input, animations (pulsing dots), and day/night visual cycles. 
+- **`rng/` & `data/`**: Deterministic generators and death zone altitude data.
+
+### How the Simulation Ticks (Phase 4+)
+The game uses a `GameClock` logic inside the `Sim` struct. 
+- **Tick accumulation**: In `ui.Update()`, we call `Sim.Tick(delta)`. 
+- **1x Speed**: A day is compressed to ~8 minutes of real-world time.
+- **Turn Logic**: Every 3 game-hours accumulated, a `Game Turn` fires, calling `AdvanceTime()`.
+
+### Adding New Features
+
+#### 1. Adding a new Stat (e.g., Hunger, Hydration)
+1. Add the field to the `Climber` struct in `world/climber.go`.
+2. Update `world.ApplyStatChange` to handle the new key and its limits.
+3. Add decay logic to `sim.AdvanceTime`.
+4. Add a visual display to `ui/app.go`.
+
+#### 2. Adding a new Threat (e.g., HAPE, Injury)
+1. Define the `ThreatType` in `world/world.go`.
+2. Add the trigger conditions in `sim.CheckThreats`.
+3. If it generates a specific outcome, update `sim.AssignThreat`.
+
+#### 3. Adjusting Balance
+Most mathematical tuning constants are located at the top of `sim/sim.go` (e.g., `AltitudeFitLossMin`). Adjust these to change the difficulty without touching the code logic.
+
+---
+
 

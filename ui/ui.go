@@ -98,7 +98,7 @@ func PrintDebug(s *sim.Sim, c *world.Climber) {
 	fmt.Printf("  Mode:     %s\n", envType)
 
 	if c.Loc > data.LocBase {
-		min, max := sim.AltitudeFitLossMin, sim.AltitudeFitLossMax
+		min, max := data.AltitudeFitLossMin, data.AltitudeFitLossMax
 		isNight := s.State.Hour >= 18 || s.State.Hour < 6
 		if isNight {
 			min += 2
@@ -115,7 +115,7 @@ func PrintDebug(s *sim.Sim, c *world.Climber) {
 			}
 		}
 	} else {
-		fmt.Printf("  Passive recovery: Fit +%d, AMS -%d\n", sim.BaseRecoveryFit, sim.BaseRecoveryAms)
+		fmt.Printf("  Passive recovery: Fit +%d, AMS -%d\n", data.BaseRecoveryFit, data.BaseRecoveryAms)
 	}
 	
 	fmt.Printf("  Weather:  Wind %d km/h | Exposure: %d turns\n", s.State.WindSpeed, c.ExposureTurns)

@@ -1,4 +1,20 @@
-# Summit — Changelog
+---
+
+## Phase 4 — Car ✅
+**Built:** Ebitengine Graphical Transition, Real-Time Clock, Persistent Orders.
+**Status:** Build passes. Interactive GUI is fully functional.
+
+### What was built
+- [x] **Graphical UI**: Windowed application using Ebitengine (960x720).
+- [x] **Real-Time Simulation**: 60 FPS update loop with `AccumulatedTime` logic.
+- [x] **Speed Control**: Manual `Pause`, `1x`, `4x`, and `12x` buttons (and hotkeys 1-3).
+- [x] **Persistent Commands**: Climbers now follow `Orders` (Climb/Rest/Hold) instead of turn-by-turn prompts.
+- [x] **Manual Oxygen**: O2 is now an assigned toggle; provides 50% mitigation to stat decay.
+- [x] **Ambient Visuals**: Day/Night skybox cycle and "Panic Pulse" heart-rate indicators for AMS levels.
+- [x] **Interactive HUD**: Detailed side-panel for selected climbers with non-overlapping zone layout.
+- [x] **Three-Zone Dashboard**: Split screen into Mountain View (60%), Command Bar (Bottom), and Intel Sidebar (Right).
+- [x] **Visual Vitals**: Real-time progress bars for Fitness and AMS, and iconic oxygen tank status.
+- [x] **Multi-Climber Ready**: Interior architecture updated to handle team slices.
 
 ---
 

@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"log"
 	"summit/data"
 	"summit/rng"
 	"summit/sim"
 	"summit/ui"
 	"summit/world"
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 func main() {
@@ -17,8 +18,6 @@ func main() {
 	fmt.Println("║     A mountain survival game         ║")
 	fmt.Println("╚══════════════════════════════════════╝")
 	fmt.Println()
-	fmt.Println("  Enter 1–4 to choose. 'q' to quit.")
-	fmt.Println()
 
 	// Initialize Sim with new WorldState and default Mountain
 	w := world.NewWorldState(0)
@@ -27,11 +26,26 @@ func main() {
 	// Climber generation via RNG package
 	c := rng.GenerateClimber(w)
 	c.Altitude = s.Mountain.CampAltitudes[data.LocBase]
+	c.Order = world.OrderHold // Default to holding position at start
 	s.Team = append(s.Team, c)
 
 	fmt.Printf(" [ SESSION SEED: %d ]\n", w.Seed)
 	s.LogLine(fmt.Sprintf("%s — %s. Ready to move. Clear skies.", c.Name, s.Mountain.Name))
 
+	// Transition to Ebitengine CLI
+	ebiten.SetWindowTitle("SUMMIT - Phase 4")
+	ebiten.SetWindowSize(ui.ScreenWidth, ui.ScreenHeight)
+
+	app := &ui.App{
+		Sim: s,
+	}
+
+	if err := ebiten.RunGame(app); err != nil {
+		log.Fatal(err)
+	}
+
+	/* 
+	// --- DEPRECATED TERMINAL LOOP (COMMETED OUT) ---
 	for {
 		// 1. CHECK TERMINAL (Win/Loss)
 		done, outcome := s.CheckTerminal(c)
@@ -89,4 +103,5 @@ func main() {
 		// 4. ADVANCE TIME
 		s.AdvanceTime(c)
 	}
+	*/
 }

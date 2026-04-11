@@ -17,6 +17,16 @@ const (
 	ModMeds      ModifierType = "Meds"
 )
 
+// ClimberOrder represents the current objective for a climber
+type ClimberOrder string
+
+const (
+	OrderHold    ClimberOrder = "Hold"
+	OrderClimb   ClimberOrder = "Climb"
+	OrderDescend ClimberOrder = "Descend"
+	OrderRest    ClimberOrder = "Rest"
+)
+
 type Modifier struct {
 	Type          ModifierType
 	MaxFitPenalty int
@@ -33,9 +43,13 @@ type Climber struct {
 	ActiveThreats map[ThreatType]*ActiveThreat
 	ExposureTurns int // Turns exposed to high winds
 	O2Charges     int // 0-3 (1 bottle = 3 charges)
-	Resting       bool
+	O2Active      bool
+	Resting       bool // Internal state for sim calculation
+	Order         ClimberOrder
+	OrderTarget   int // Altitude or Loc target
 	Altitude      int
 	Modifiers     []Modifier
+	PulseOffset   float64 // For Visual animation
 }
 
 // Utility for keeping stats in range

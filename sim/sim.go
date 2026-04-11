@@ -11,27 +11,17 @@ const (
 	AmsWhisper = 30
 	AmsWarning = 55
 	AmsCrisis  = 80
-
-	// Environmental Systems
-	BaseRecoveryFit    = 6
-	BaseRecoveryAms    = 8
-	AltitudeFitLossMin = 3
-	AltitudeFitLossMax = 5
 )
-
-var AmsGainByLoc = map[int][2]int{
-	data.LocBase:     {-8, -5},
-	data.LocCamp1:    {0, 2},
-	data.LocCamp2:    {1, 3},
-	data.LocHighCamp: {2, 5},
-	data.LocSummit:   {3, 6},
-}
 
 type Sim struct {
 	State    *world.WorldState
 	Mountain data.Mountain
 	Team     []*world.Climber
 	Log      []string
+
+	// Phase 4 Clock Systems
+	Speed           int     // 0 (Pause), 1, 4, 12
+	AccumulatedTime float64 // Tracks fractional seconds until next 3-hr turn
 }
 
 func NewSim(w *world.WorldState, m data.Mountain) *Sim {
@@ -40,54 +30,109 @@ func NewSim(w *world.WorldState, m data.Mountain) *Sim {
 		Mountain: m,
 		Team:     make([]*world.Climber, 0),
 		Log:      make([]string, 0),
+		Speed:    1, // Default to 1x
 	}
 }
 
 func (s *Sim) LogLine(msg string) {
 	s.Log = append(s.Log, msg)
-	if len(s.Log) > 10 {
+	if len(s.Log) > 15 { // Slightly more log space for GUI
 		s.Log = s.Log[1:]
 	}
 }
 
+// Tick is the primary simulation entry point for Phase 4
+func (s *Sim) Tick(delta float64) {
+	if s.Speed == 0 {
+		return
+	}
+
+	// In 1x speed, a full 24h day takes ~8 minutes (480 seconds)
+	// 1 game-hour = 20 real seconds.
+	// 3 game-hours (one turn) = 60 real seconds.
+	s.AccumulatedTime += delta * float64(s.Speed)
+
+	if s.AccumulatedTime >= 60.0 {
+		s.AccumulatedTime = 0
+		for _, c := range s.Team {
+			s.AdvanceTime(c)
+		}
+	}
+}
+
 func (s *Sim) AdvanceTime(c *world.Climber) {
-	if c.Loc > data.LocBase {
-		fitLoss := AltitudeFitLossMin + s.State.Rng.Intn(AltitudeFitLossMax-AltitudeFitLossMin+1)
+	// 1. Process Order Impacts (Movement or Rest)
+	c.Resting = false
+	if c.Order == world.OrderClimb || c.Order == world.OrderDescend {
+		s.ProcessMovement(c)
+	} else if c.Order == world.OrderRest {
+		c.Resting = true
+	}
+
+	// 2. CALCULATE PHYSIOLOGICAL CHANGE
+	var netFitness int
+	var netAms int
+
+	// Base Camp is special: Perfect recovery
+	if c.Loc == data.LocBase {
+		netFitness = data.BaseRecoveryFit
+		netAms = -data.BaseRecoveryAms
+	} else {
+		// ALititude Decay
+		fitLoss := data.AltitudeFitLossMin + s.State.Rng.Intn(data.AltitudeFitLossMax-data.AltitudeFitLossMin+1)
+		gainRange := data.AmsBaseGain[c.Loc]
+		amsGain := float64(gainRange[0] + s.State.Rng.Intn(gainRange[1]-gainRange[0]+1))
+
+		// Night Penalty
+		isNight := s.State.Hour >= 18 || s.State.Hour < 6
+		if isNight {
+			fitLoss += data.NightFitPenalty
+			amsGain += data.NightAmsPenalty
+		}
+
+		// RESTING LOGIC: Mitigate loss or turn into recovery
 		if c.Resting {
 			if c.Altitude >= s.Mountain.DeathZone {
-				fitLoss = 4
+				fitLoss = data.DeathZoneFitLoss // Still losing health in Death Zone
+				amsGain -= data.DeathZoneAmsLoss 
 			} else {
-				fitLoss = 1
+				// At C1/C2/C3, resting is a net POSITIVE
+				fitLoss -= data.RestingFitBonus 
+				amsGain -= data.RestingAmsBonus
+
+				// ADDITIONAL BONUS if explicitly at a camp (Tents/Shelter)
+				if c.Altitude == s.Mountain.CampAltitudes[c.Loc] {
+					fitLoss -= data.CampRestBonus
+					amsGain -= 1 // Extra AMS relief from better sleep
+				}
 			}
 		}
 
-		isNight := s.State.Hour >= 18 || s.State.Hour < 6
-		if isNight {
-			fitLoss += 2
+		// CLIMBING PENALTY (If moving, it's harder)
+		if c.Order == world.OrderClimb || c.Order == world.OrderDescend {
+			fitLoss += data.ClimbingFitCost
+			amsGain += data.ClimbingAmsCost
 		}
 
-		gainRange := AmsGainByLoc[c.Loc]
-		amsGain := float64(gainRange[0] + s.State.Rng.Intn(gainRange[1]-gainRange[0]+1))
-		
-		// Use individual climber's archetype for specialized susceptibility
-		if amsGain > 0 {
-			amsGain *= c.Archetype.AMSSusPercent
-		}
-		
-		if isNight {
-			amsGain += 1
+		// OXYGEN MITIGATION
+		if c.O2Active && c.O2Charges > 0 {
+			if fitLoss > 0 { fitLoss /= 2 }
+			amsGain /= 2
 		}
 
-		world.ApplyStatChange(c, "Fitness", -fitLoss, "Environment")
-		world.ApplyStatChange(c, "AMS", int(amsGain), "Environment")
-	} else {
-		world.ApplyStatChange(c, "Fitness", BaseRecoveryFit, "Environment")
-		world.ApplyStatChange(c, "AMS", -BaseRecoveryAms, "Environment")
+		netFitness = -fitLoss
+		netAms = int(amsGain)
 	}
 
-	c.Resting = false
+	world.ApplyStatChange(c, "Fitness", netFitness, "Environment")
+	world.ApplyStatChange(c, "AMS", netAms, "Environment")
+
+	// 3. RECOVERY & CONSUMPTION
 	s.ConsumeO2(c)
 
+	// 4. TIME ADVANCEMENT (Only advances after all team logic is done for the turn)
+	// We handle this inside Tick normally, but the math here is per-climber
+	// Logic from original Sim: 
 	s.State.Hour += 3
 	if s.State.Hour >= 24 {
 		s.State.Hour = 0
@@ -101,6 +146,7 @@ func (s *Sim) AdvanceTime(c *world.Climber) {
 		}
 	}
 
+	// 5. WIND & EXPOSURE
 	baseWind := s.State.WeatherCurve[s.State.Day%31]
 	if c.Altitude < 6000 {
 		s.State.WindSpeed = baseWind / 2
@@ -110,7 +156,10 @@ func (s *Sim) AdvanceTime(c *world.Climber) {
 		s.State.WindSpeed = baseWind + 30
 	}
 
-	if s.State.WindSpeed >= 60 {
+	isAtCamp := c.Altitude == s.Mountain.CampAltitudes[c.Loc]
+	if isAtCamp && (c.Order == world.OrderRest || c.Order == world.OrderHold) {
+		c.ExposureTurns = 0 // Wind can't hit you inside a tent at camp
+	} else if s.State.WindSpeed >= 60 {
 		c.ExposureTurns++
 	} else if c.Resting {
 		c.ExposureTurns = 0
@@ -122,6 +171,12 @@ func (s *Sim) ConsumeO2(c *world.Climber) {
 		c.O2Charges = 3
 		return
 	}
+	
+	// Only consume if the player has manually activated O2
+	if !c.O2Active {
+		return
+	}
+
 	if c.O2Charges > 0 {
 		c.O2Charges--
 	}
@@ -129,6 +184,25 @@ func (s *Sim) ConsumeO2(c *world.Climber) {
 		s.State.CampO2[c.Loc]--
 		c.O2Charges = 3
 		s.LogLine(fmt.Sprintf("%s loaded a fresh O2 bottle at %s.", c.Name, s.Mountain.CampNames[c.Loc]))
+	}
+}
+
+func (s *Sim) ProcessMovement(c *world.Climber) {
+	if c.Order == world.OrderClimb {
+		climbGain := 300 + s.State.Rng.Intn(250)
+		c.Altitude += climbGain
+		target := s.Mountain.CampAltitudes[c.Loc+1]
+		if c.Altitude >= target {
+			c.Altitude = target
+			c.Loc++
+			c.Order = world.OrderHold // Stop at the camp automatically
+			s.LogLine(fmt.Sprintf("%s reached %s.", c.Name, s.Mountain.CampNames[c.Loc]))
+		}
+	} else if c.Order == world.OrderDescend {
+		c.Loc = world.Clamp(c.Loc-1, data.LocBase, data.LocSummit)
+		c.Altitude = s.Mountain.CampAltitudes[c.Loc]
+		c.Order = world.OrderHold
+		s.LogLine(fmt.Sprintf("%s descended to %s.", c.Name, s.Mountain.CampNames[c.Loc]))
 	}
 }
 

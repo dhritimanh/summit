@@ -90,6 +90,8 @@ func TestDeathZoneResting(t *testing.T) {
 	c2 := &world.Climber{Fitness: 50, Loc: data.LocSummit, Altitude: 8848, Resting: true, O2Charges: 3}
 	
 	s.State.Hour = 12 // make it day
+	c1.Order = world.OrderRest
+	c2.Order = world.OrderRest
 	s.AdvanceTime(c1)
 	s.AdvanceTime(c2)
 
@@ -104,7 +106,7 @@ func TestDeathZoneResting(t *testing.T) {
 
 func TestOxygenConsumption(t *testing.T) {
 	s := createTestSim()
-	c := &world.Climber{Fitness: 90, Loc: data.LocCamp2, Altitude: 6500, O2Charges: 1}
+	c := &world.Climber{Fitness: 90, Loc: data.LocCamp2, Altitude: 6500, O2Charges: 1, O2Active: true}
 	s.State.CampO2[data.LocCamp2] = 1 // 1 bottle available
 
 	// Turn 1: Consume last charge
